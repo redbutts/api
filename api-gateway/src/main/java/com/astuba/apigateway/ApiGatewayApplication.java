@@ -12,23 +12,17 @@ import org.springframework.context.ConfigurableApplicationContext;
 @EnableDubbo
 public class ApiGatewayApplication {
 
-    @DubboReference
-    private InterfaceInfoRPC interfaceInfoRPC;
 
-    @DubboReference
-    private UserInterfaceInfoRPC userInterfaceInfoRPC;
 
     public static void main(String[] args) {
-        ConfigurableApplicationContext context = SpringApplication.run(ApiGatewayApplication.class, args);
-        ApiGatewayApplication consumer = context.getBean(ApiGatewayApplication.class);
-        consumer.doConsume();
+        SpringApplication.run(ApiGatewayApplication.class, args);
     }
 
-    void doConsume()
-    {
-        interfaceInfoRPC.getById(1);
-        userInterfaceInfoRPC.invokeCount(1,1);
-    }
+//    void doConsume()
+//    {
+//        interfaceInfoRPC.getById(1);
+//        userInterfaceInfoRPC.invokeCount(1,1);
+//    }
 
 //    @Bean
 //    public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {

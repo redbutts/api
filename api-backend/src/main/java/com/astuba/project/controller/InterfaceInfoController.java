@@ -36,7 +36,7 @@ import javax.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/interfaceInfo")
 @Slf4j
-public class InterfaceInfoController implements InterfaceInfoRPC {
+public class InterfaceInfoController{
 
     @Resource
     private InterfaceInfoService interfaceInfoService;
@@ -276,7 +276,6 @@ public class InterfaceInfoController implements InterfaceInfoRPC {
      * @param invokeRequest
      * @return
      */
-    @DubboService
     @PostMapping("/invoke")
     public BaseResponse<Object> invoke(@RequestBody InvokeRequest invokeRequest, HttpServletRequest request) {
         if(invokeRequest == null || invokeRequest.getId() <= 0)

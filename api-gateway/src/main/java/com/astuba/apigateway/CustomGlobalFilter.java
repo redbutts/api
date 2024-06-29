@@ -1,8 +1,11 @@
 package com.astuba.apigateway;
 
 import com.astuba.apiclientsdk.utils.MD5Utils;
+import com.astuba.apirpc.model.InterfaceInfo;
+import com.astuba.apirpc.model.User;
 import com.astuba.apirpc.rpc.InterfaceInfoRPC;
 import com.astuba.apirpc.rpc.UserInterfaceInfoRPC;
+import com.astuba.apirpc.rpc.UserRPC;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.reactivestreams.Publisher;
@@ -13,6 +16,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -32,23 +36,26 @@ import java.util.*;
 @Component
 public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
-//    @DubboReference
-//    private InterfaceInfoRPC interfaceInfoRPC;
-//
-//    @DubboReference
-//    private UserInterfaceInfoRPC userInterfaceInfoRPC;
+    @DubboReference
+    private InterfaceInfoRPC interfaceInfoRPC;
+
+    @DubboReference
+    private UserInterfaceInfoRPC userInterfaceInfoRPC;
+
+    @DubboReference
+    private UserRPC userRPC;
 
     private static final List<String> WHITE_LIST = Arrays.asList("127.0.0.1");
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         //1. 全局过滤器
         ServerHttpRequest request = exchange.getRequest();
-        log.info("请求唯一标识" + request.getId());
-        log.info("请求方法" + request.getMethod());
-        log.info("请求路径" + request.getPath().value());
-        log.info("请求参数" + request.getQueryParams());
+        String method = request.getMethod().toString();
         String sourceAddress = request.getLocalAddress().getHostString();
+        String path = request.getPath().value();
+        log.info("请求方法" + method);
         log.info("请求来源地址" + sourceAddress);
+        log.info("请求路径" + path);
         //2. 访问控制-黑白名单
         ServerHttpResponse response = exchange.getResponse();
         if(!WHITE_LIST.contains(sourceAddress))
@@ -65,7 +72,9 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         System.out.println("accessKey: " + accessKey + "  body: " + body + "  nonce: " + nonce + "  timestamp: " + timestamp + "  sign: " + sign);
 
         // todo 实际情况是应该到数据库中去查
-        if(!"4e6b09cc0cfd9f9702ec9bd3df7a84dc".equals(accessKey))
+        User user = userRPC.getUser(accessKey);
+
+        if(!accessKey.equals(user.getAccessKey()))
         {
             handleNoAuth(response);
         }
@@ -84,7 +93,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
             handleNoAuth(response);
         }
         // todo 从数据库中查出此用户的secretKey
-        String secretKey = "aadaa9e3666cbfaba85e820efafdbf57";
+        String secretKey = user.getSecretKey();
         // 校验sign
         Map<String, String> hashMap = new HashMap<>();
         hashMap.put("accessKey", accessKey);
@@ -99,11 +108,11 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
         //4. 请求的接口是否存在
         //todo 这里需要调用 api-backend 项目的接口(http请求或RPC)
-//        Object interfaceInfo = interfaceInfoRPC.getById(1);
-//        if(interfaceInfo == null)
-//        {
-//            handleInvokeError(response);
-//        }
+        InterfaceInfo interfaceInfo = interfaceInfoRPC.getInterfaceInfo(path, method);
+        if(interfaceInfo == null)
+        {
+            handleInvokeError(response);
+        }
 
         //5. 请求转发，调用模拟接口
         // todo 这里有问题：chain.filter是个异步方法，它会等下面的步骤都走完之后，才做转发操作
@@ -111,7 +120,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 //        Mono<Void> filter = chain.filter(exchange);
 
         // 这个就是装饰者模式
-        return handleResponseLog(exchange, chain);
+        return handleResponseLog(exchange, chain, interfaceInfo.getId(), user.getId());
 //        //6. 响应日志
 //        log.info("响应：" + response.getStatusCode());
 //
@@ -147,7 +156,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     /**
      * 处理响应：在调用模拟接口之后
      */
-    public Mono<Void> handleResponseLog(ServerWebExchange exchange, GatewayFilterChain chain)
+    public Mono<Void> handleResponseLog(ServerWebExchange exchange, GatewayFilterChain chain, long interfaceId, long userId)
     {
         try {
             // 原始的空响应
@@ -183,7 +192,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
                                 //7. 调用成功，接口调用次数+1
                                 // todo 调用api-backend 项目的方法 invokeCount
-//                                userInterfaceInfoRPC.invokeCount(1, 2);
+                                userInterfaceInfoRPC.invokeCount(interfaceId, userId);
 
                                 return bufferFactory().wrap(content);
                                 }));
