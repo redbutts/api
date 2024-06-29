@@ -1,0 +1,42 @@
+server:
+  port: 8090
+spring:
+  cloud:
+    gateway:
+      routes:
+#        - id: after_route
+#          path: /a
+#          uri: https://astuba.icu
+#          predicates:
+#            - After=2024-06-24T17:42:47.789-07:00[America/Denver]
+#        - id: path_route1
+#          uri: https://astuba.icu
+#          predicates:
+#          - Path=/a/**
+#
+#
+#        - id: path_route2
+#          uri: https://www.bilibili.com
+#          predicates:
+#          - Path=/b/**
+
+        - id: api_route
+          uri: http://localhost:8123
+          predicates:
+          - Path=/api/**
+
+logging:
+  level:
+    org:
+      springframework:
+        cloud:
+          gateway: trace
+
+dubbo:
+  application:
+    name: api-gateway
+    logger: slf4j
+    qos-port: 33333
+  registry:
+    address: nacos://${nacos.address:127.0.0.1}:8848?username=nacos&password=nacos
+
